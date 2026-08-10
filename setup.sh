@@ -30,7 +30,7 @@ if [[ ! -e "$REPO_DIR" ]]; then
     }
     git clone "$REPO_URL" "$REPO_DIR"
 
-# If $REPO_DIR exists but is missing the .git folder 
+# If $REPO_DIR exists but is missing the .git folder
 elif [[ ! -d "$REPO_DIR/.git" ]]; then
     printf 'Error: %s already exists but is not a Git repository.\n' "$REPO_DIR" >&2
     exit 1
@@ -55,9 +55,9 @@ for file in "${LINK_FILES[@]}"; do
         # Check if symlink points to the correct file
         if [[ "$(readlink "$target_file")" != "$source_file" ]]; then
             printf 'Existing link is incorrect: %s -> %s\n' "$target_file" "$(readlink "$target_file")"
-            continue
-        else 
+        else
             printf 'Already linked: %s -> %s\n' "$target_file" "$source_file"
+            continue
         fi
 
     # If the target file exists and is NOT a symlink, back it up
