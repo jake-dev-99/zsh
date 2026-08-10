@@ -1,94 +1,159 @@
 # Shell Config
 
-Portable shell configuration shared across all of my devices.
-
+Portable Bash and Zsh configuration shared across my devices.
 
 ## Files
 
-| File             | Purpose                                                                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `.bash_profile`  | Bash login-shell configuration. Used for login initialization and bootstrapping Bash environments.                                         |
-| `.bashrc`        | Bash interactive-shell configuration. Contains Bash aliases, functions, PATH changes, and shell behavior.                                  |
-| `.zprofile`      | Zsh login-shell configuration. Used for login/session initialization and environment setup.                                                |
-| `.zsh_history`   | Zsh command history file. Stores previously executed interactive commands.                                                                 |
-| `.zshenv`        | Zsh environment configuration. Loaded by every Zsh process, including scripts and non-interactive shells.                                  |
-| `.zshrc`         | Primary Zsh interactive-shell configuration. Loads aliases, functions, plugins, completions, prompts, and platform-specific configuration. |
-| `.linux.zshrc`   | Linux-specific Zsh configuration. Sourced conditionally from `.zshrc`.                                                                     |
-| `.macos.zshrc`   | macOS-specific Zsh configuration. Sourced conditionally from `.zshrc`.                                                                     |
-| `.windows.zshrc` | Windows-specific Zsh configuration, primarily for environments such as Git Bash or MinGW. Sourced conditionally from `.zshrc`.             |
+| File            | Purpose                                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `.bash_profile` | Bash login-shell entry point. Sources `~/.bashrc`.                                                                                  |
+| `.bashrc`       | Bash interactive-shell configuration. Adds the user bin path and hands supported interactive Git Bash sessions off to Zsh.          |
+| `.zshenv`       | Global Zsh environment configuration. Detects the current OS and declares shared and OS-specific path variables.                    |
+| `.zprofile`     | Zsh login-shell configuration. Runs login-specific platform setup before `.zshrc`.                                                  |
+| `.zshrc`        | Primary interactive Zsh configuration. Loads common shell configuration, Oh My Zsh, and the platform hooks.                         |
+| `platform.zsh`  | Shared platform implementation. Defines platform-specific profile, Oh My Zsh, aliases, autocomplete, PATH, and final tooling setup. |
 
+## Startup Flow
 
-## Bash Startup
-
-Login shell:
+### Git Bash
 
 ```text
 .bash_profile
+  └── .bashrc
+        └── exec zsh -l
+              ├── .zshenv
+              ├── .zprofile
+              └── .zshrc
+                    └── platform.zsh
 ```
 
-Interactive non-login shell:
-
-```text
-.bashrc
-```
-
-`.bash_profile` should source `.bashrc` when interactive Bash configuration is also required.
-
-
-## Zsh Startup
-
-Interactive login shell:
+### Zsh Interactive Login Shell
 
 ```text
 .zshenv
 .zprofile
 .zshrc
-  └── .linux.zshrc
-  └── .macos.zshrc
-  └── .windows.zshrc
+  └── platform.zsh
 ```
 
-Interactive non-login shell:
+### Zsh Interactive Non-Login Shell
 
 ```text
 .zshenv
 .zshrc
-  └── .linux.zshrc
-  └── .macos.zshrc
-  └── .windows.zshrc
+  └── platform.zsh
 ```
 
-Non-interactive Zsh:
+### Zsh Non-Interactive Shell
 
 ```text
 .zshenv
 ```
 
+## Operating System Detection
 
-## Platform Configuration
+`.zshenv` assigns `OS_NAME` from `$OSTYPE` and then loads the corresponding path declarations.
 
-`.zshrc` is the common entry point and loads the appropriate platform configuration.
-
-```zsh
-case "$OSTYPE" in
-  darwin*)
-    source ~/.macos.zshrc
-    ;;
-  linux*)
-    source ~/.linux.zshrc
-    ;;
-  msys*|cygwin*)
-    source ~/.windows.zshrc
-    ;;
-esac
+```text
+darwin*       -> macos
+linux*        -> linux
+msys*|cygwin* -> windows
 ```
 
+Path declarations are organized into four functions:
 
-## Guidelines
+```text
+common_paths
+mac_paths
+linux_paths
+windows_paths
+```
 
-* Keep shared Zsh configuration in `.zshrc`.
-* Keep OS-specific configuration in the corresponding platform file.
-* Keep `.zshenv` minimal because it runs for every Zsh process.
-* Use `.zprofile` for login-session initialization.
-* Use `.bashrc` and `.bash_profile` only where Bash support or Zsh bootstrapping is required.
-* Do not commit secrets, credentials, or private keys.
+`common_paths` is always executed. The matching OS-specific function is executed afterward.
+
+## Path Configuration
+
+Filesystem locations and tool paths are declared in `.zshenv` rather than scattered throughout the interactive configuration.
+
+```text
+.zshenv
+  ├── common_paths()
+  ├── mac_paths()
+  ├── linux_paths()
+  └── windows_paths()
+```
+
+The remaining startup files consume those variables when configuring tools and extending the shell PATH.
+
+Zsh's lowercase `path` array is used when modifying `PATH`. Zsh automatically synchronizes the `path` array with the exported `PATH` environment variable.
+
+## Interactive Configuration
+
+`.zshrc` owns the common interactive configuration and sources `platform.zsh` relative to its own location:
+
+```zsh
+source "${${(%):-%N}:A:h}/platform.zsh"
+```
+
+The platform hooks are executed at defined points during startup:
+
+```text
+.zshrc
+  │
+  ├── source platform.zsh
+  │
+  ├── platform_profile
+  │
+  ├── common Zsh configuration
+  │
+  ├── platform_oh_my_zsh
+  │
+  ├── load Oh My Zsh
+  │
+  ├── common user configuration
+  │
+  └── platform_final
+```
+
+## Platform Hooks
+
+`platform.zsh` provides the platform-specific implementation used by `.zshrc`.
+
+### `platform_profile`
+
+Runs preliminary platform configuration before the main interactive Zsh configuration.
+
+### `platform_oh_my_zsh`
+
+Applies OS-specific Oh My Zsh configuration before Oh My Zsh is loaded, including platform-specific plugin additions.
+
+### `platform_final`
+
+Applies the remaining platform configuration after the common user configuration, including tool environment variables, PATH additions, aliases, and autocomplete setup.
+
+## Oh My Zsh
+
+The common Oh My Zsh configuration lives in `.zshrc`.
+
+The base plugin list is shared across all operating systems. `platform_oh_my_zsh` appends any additional plugins required for the current `OS_NAME` before Oh My Zsh initializes.
+
+Automatic Oh My Zsh updates are enabled with a seven-day update frequency.
+
+## Configuration Boundaries
+
+```text
+.zshenv
+  Environment detection and path declarations
+
+.zprofile
+  Login-shell initialization
+
+.zshrc
+  Common interactive Zsh configuration
+
+platform.zsh
+  OS-specific interactive implementations
+
+.bash_profile / .bashrc
+  Bash startup and Git Bash -> Zsh bootstrap
+```
