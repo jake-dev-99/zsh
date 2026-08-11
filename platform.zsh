@@ -26,13 +26,9 @@ function platform_profile {
 function platform_oh_my_zsh {
 
     # Add wisely, as too many plugins slow down shell startup.
-    if [[ "$OS_NAME" == "macos" ]]; then
-        plugins+=(sudo brew copyfile copypath iterm2 macos)
-        elif [[ "$OS_NAME" == "linux" ]]; then
-        plugins+=(sudo terraform)
-        elif [[ "$OS_NAME" == "windows" ]]; then
-        plugins+=(sudo)
-    fi
+    [[ "$OS_NAME" == "macos" ]] && plugins+=(sudo brew copyfile copypath iterm2 macos)
+    [[ "$OS_NAME" == "linux" ]] && plugins+=(sudo terraform)
+    [[ "$OS_NAME" == "windows" ]] && plugins+=(sudo)
 }
 
 function platform_final {
